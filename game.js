@@ -83,19 +83,25 @@ class Freddie {
         this.x = Math.random() * (canvas.width - this.width) + this.width / 2;
         this.y = -this.height;
         
-        // Health: Square root growth (slower, more predictable), capped at 4
-        // Wave 1-3: 1 health, Wave 4-8: 2 health, Wave 9-15: 3 health, etc.
-        this.health = Math.min(4, Math.floor(Math.sqrt(Math.max(0, wave - 1) / 2.1)) + 1);
+        // Health: Square root growth (slower, more predictable)
+		const maxHealth = 4; // Maximum health cap
+        const maxSpeed = 2.1; // Final speed target - adjust this to change difficulty
+        const speedGrowthRate = 0.07;
+
+		this.health = Math.min(maxHealth, Math.floor(Math.sqrt(Math.max(0, wave - 1) / 2.1)) + 1);
         this.maxHealth = this.health;
         
-        // Speed: Asymptotically approaches 2.5, but reduced by health
-        const maxSpeed = 2.5;
-        const speedGrowthRate = 0.15;
-        const baseSpeed = 1 + (maxSpeed - 1) * (1 - Math.exp(-speedGrowthRate * wave));
+        // Speed: Asymptotically approaches maxSpeed, with 20% reduction per health point
+        // Speed penalty: 20% per health point (0.8^(health-1))
+        // Health 1: 100%, Health 2: 80%, Health 3: 64%, Health 4: 51.2%
+        const healthSpeedMultiplier = Math.pow(0.8, this.health - 1);
         
-        // Speed penalty based on health: more health = slower movement
-        // Health 1: 100% speed, Health 2: 90%, Health 3: 82%, Health 4: 75%
-        const healthSpeedMultiplier = 1 / Math.sqrt(this.health);
+        // Adjust target speed so max health still reaches maxSpeed
+        const maxHealthMultiplier = Math.pow(0.8, maxHealth - 1);
+        const adjustedMaxSpeed = maxSpeed / maxHealthMultiplier;
+        
+        // Base speed grows toward adjusted max, then apply health penalty
+        const baseSpeed = 1 + (adjustedMaxSpeed - 1) * (1 - Math.exp(-speedGrowthRate * wave));
         this.speed = baseSpeed * healthSpeedMultiplier;
         this.angle = 0;
         this.wobble = Math.random() * Math.PI * 2;
