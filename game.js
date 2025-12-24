@@ -29,7 +29,9 @@ const game = {
     donutBoxes: [],
     donutBoxSpawnTimer: 0,
     texasDonutBoxes: [], // New: falling Texas donuts to collect
-    texasDonutBoxSpawnTimer: 0
+    texasDonutBoxSpawnTimer: 0,
+    texasDonutChunks: [], // Explosion chunks
+    texasDonutShockwaves: [] // Shockwave rings
 };
 
 // Texas Donut Configuration
@@ -222,6 +224,103 @@ class Particle {
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
         ctx.fill();
+        ctx.restore();
+    }
+}
+
+// Donut Chunk Class for Texas Donut explosion
+class DonutChunk {
+    constructor(x, y, angle, speed) {
+        this.x = x;
+        this.y = y;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
+        this.rotation = Math.random() * Math.PI * 2;
+        this.rotationSpeed = (Math.random() - 0.5) * 0.3;
+        this.size = Math.random() * 30 + 20;
+        this.life = 60;
+        this.maxLife = 60;
+        this.type = Math.random() > 0.5 ? 'donut' : 'frosting';
+        this.color = this.type === 'donut' ? '#FFB6C1' : '#FF69B4';
+    }
+
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vy += 0.4; // Gravity
+        this.vx *= 0.98; // Air resistance
+        this.rotation += this.rotationSpeed;
+        this.life--;
+        return this.life <= 0;
+    }
+
+    draw() {
+        ctx.save();
+        ctx.globalAlpha = this.life / this.maxLife;
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rotation);
+
+        if (this.type === 'donut') {
+            // Donut chunk
+            ctx.fillStyle = this.color;
+            ctx.beginPath();
+            ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Hole
+            ctx.fillStyle = 'rgba(135, 206, 235, 0.3)';
+            ctx.beginPath();
+            ctx.arc(0, 0, this.size * 0.4, 0, Math.PI * 2);
+            ctx.fill();
+        } else {
+            // Frosting chunk
+            ctx.fillStyle = this.color;
+            ctx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size);
+        }
+
+        ctx.restore();
+    }
+}
+
+// Shockwave Class for Texas Donut explosion
+class Shockwave {
+    constructor(x, y, delay = 0) {
+        this.x = x;
+        this.y = y;
+        this.radius = 0;
+        this.maxRadius = 600;
+        this.life = 40;
+        this.maxLife = 40;
+        this.delay = delay;
+    }
+
+    update() {
+        if (this.delay > 0) {
+            this.delay--;
+            return false;
+        }
+        
+        this.radius += 20;
+        this.life--;
+        return this.life <= 0 || this.radius > this.maxRadius;
+    }
+
+    draw() {
+        if (this.delay > 0) return;
+        
+        ctx.save();
+        ctx.globalAlpha = this.life / this.maxLife * 0.6;
+        ctx.strokeStyle = '#FFD700';
+        ctx.lineWidth = 8;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        ctx.strokeStyle = '#FF8C00';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius + 10, 0, Math.PI * 2);
+        ctx.stroke();
         ctx.restore();
     }
 }
@@ -571,9 +670,23 @@ function update() {
     // Update Texas Donut animation
     if (game.texasDonutActive) {
         game.texasDonutAnimation++;
-        if (game.texasDonutAnimation > 60) { // Animation lasts 1 second
+        if (game.texasDonutAnimation > 90) { // Animation lasts 1.5 seconds
             game.texasDonutActive = false;
             game.texasDonutAnimation = 0;
+        }
+    }
+
+    // Update Texas Donut chunks
+    for (let i = game.texasDonutChunks.length - 1; i >= 0; i--) {
+        if (game.texasDonutChunks[i].update()) {
+            game.texasDonutChunks.splice(i, 1);
+        }
+    }
+
+    // Update Texas Donut shockwaves
+    for (let i = game.texasDonutShockwaves.length - 1; i >= 0; i--) {
+        if (game.texasDonutShockwaves[i].update()) {
+            game.texasDonutShockwaves.splice(i, 1);
         }
     }
 
@@ -641,10 +754,16 @@ function draw() {
     // Draw Freddies
     game.freddies.forEach(freddie => freddie.draw());
 
+    // Draw Texas Donut shockwaves (behind explosion)
+    game.texasDonutShockwaves.forEach(shockwave => shockwave.draw());
+
     // Draw Texas Donut animation
     if (game.texasDonutActive) {
         drawTexasDonutAnimation();
     }
+
+    // Draw Texas Donut chunks (on top)
+    game.texasDonutChunks.forEach(chunk => chunk.draw());
 
     // Draw danger zone
     ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
@@ -653,45 +772,95 @@ function draw() {
 
 // Draw Texas Donut animation
 function drawTexasDonutAnimation() {
-    const progress = game.texasDonutAnimation / 60;
-    const size = 100 + (progress * 400); // Grows to 500px
-    const alpha = 1 - progress;
-
-    ctx.save();
-    ctx.globalAlpha = alpha;
-    ctx.translate(canvas.width / 2, canvas.height / 2);
-    ctx.rotate(progress * Math.PI * 4);
-
-    // Giant donut
-    const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, size / 2);
-    gradient.addColorStop(0, '#FFD700');
-    gradient.addColorStop(0.5, '#FF8C00');
-    gradient.addColorStop(1, '#FF6347');
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
     
-    ctx.fillStyle = gradient;
-    ctx.beginPath();
-    ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
-    ctx.fill();
+    // Phase 1: Donut grows (0-20 frames)
+    if (game.texasDonutAnimation <= 20) {
+        const progress = game.texasDonutAnimation / 20;
+        const size = 50 + (progress * 200); // Grows to 250px
+        const pulseSize = size + Math.sin(progress * Math.PI * 4) * 20;
 
-    // Donut hole
-    ctx.fillStyle = 'rgba(135, 206, 235, 0.5)';
-    ctx.beginPath();
-    ctx.arc(0, 0, size / 5, 0, Math.PI * 2);
-    ctx.fill();
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        ctx.rotate(progress * Math.PI * 2);
 
-    // Sprinkles
-    ctx.fillStyle = '#FF69B4';
-    for (let i = 0; i < 20; i++) {
-        const angle = (Math.PI * 2 / 20) * i;
-        const distance = size / 3;
-        const x = Math.cos(angle) * distance;
-        const y = Math.sin(angle) * distance;
+        // Giant donut with glow
+        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, pulseSize);
+        gradient.addColorStop(0, '#FFD700');
+        gradient.addColorStop(0.4, '#FF8C00');
+        gradient.addColorStop(0.7, '#FF6347');
+        gradient.addColorStop(1, 'rgba(255, 99, 71, 0)');
+        
+        ctx.fillStyle = gradient;
         ctx.beginPath();
-        ctx.arc(x, y, 8, 0, Math.PI * 2);
+        ctx.arc(0, 0, pulseSize, 0, Math.PI * 2);
         ctx.fill();
-    }
 
-    ctx.restore();
+        // Donut body
+        ctx.fillStyle = '#FFB6C1';
+        ctx.beginPath();
+        ctx.arc(0, 0, size, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Donut hole
+        ctx.fillStyle = '#87CEEB';
+        ctx.beginPath();
+        ctx.arc(0, 0, size * 0.35, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Frosting
+        ctx.fillStyle = '#FF69B4';
+        for (let i = 0; i < 12; i++) {
+            const angle = (Math.PI * 2 / 12) * i;
+            const distance = size * 0.7;
+            const x = Math.cos(angle) * distance;
+            const y = Math.sin(angle) * distance;
+            ctx.beginPath();
+            ctx.arc(x, y, 12, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Sprinkles
+        ctx.fillStyle = '#FFD700';
+        for (let i = 0; i < 24; i++) {
+            const angle = (Math.PI * 2 / 24) * i + progress;
+            const distance = size * 0.6;
+            const x = Math.cos(angle) * distance;
+            const y = Math.sin(angle) * distance;
+            ctx.fillRect(x - 3, y - 8, 6, 16);
+        }
+
+        ctx.restore();
+    }
+    // Phase 2: Flash and explosion (21-30 frames)
+    else if (game.texasDonutAnimation <= 30) {
+        const flashProgress = (game.texasDonutAnimation - 20) / 10;
+        const flashAlpha = 1 - flashProgress;
+        
+        // White flash
+        ctx.save();
+        ctx.globalAlpha = flashAlpha * 0.8;
+        ctx.fillStyle = '#FFFFFF';
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, 300, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // Explosion burst
+        ctx.save();
+        ctx.globalAlpha = flashAlpha;
+        const burstGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, 400);
+        burstGradient.addColorStop(0, '#FFD700');
+        burstGradient.addColorStop(0.5, '#FF8C00');
+        burstGradient.addColorStop(1, 'rgba(255, 99, 71, 0)');
+        ctx.fillStyle = burstGradient;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, 400 * flashProgress, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+    // Phase 3: Chunks flying (handled by DonutChunk class)
 }
 
 // Draw decorative clouds
@@ -720,6 +889,31 @@ function activateTexasDonut() {
     game.texasDonutAnimation = 0;
     game.texasDonutCount--; // Use one Texas donut from stockpile
 
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+
+    // Create explosion chunks after a delay
+    setTimeout(() => {
+        // Create donut chunks flying in all directions
+        const chunkCount = 30;
+        for (let i = 0; i < chunkCount; i++) {
+            const angle = (Math.PI * 2 / chunkCount) * i + Math.random() * 0.3;
+            const speed = 8 + Math.random() * 12;
+            game.texasDonutChunks.push(new DonutChunk(centerX, centerY, angle, speed));
+        }
+
+        // Create shockwave rings
+        game.texasDonutShockwaves.push(new Shockwave(centerX, centerY, 0));
+        game.texasDonutShockwaves.push(new Shockwave(centerX, centerY, 5));
+        game.texasDonutShockwaves.push(new Shockwave(centerX, centerY, 10));
+
+        // Create massive particle explosion
+        createParticles(centerX, centerY, '#FFD700', 80);
+        createParticles(centerX, centerY, '#FF8C00', 60);
+        createParticles(centerX, centerY, '#FFB6C1', 60);
+        createParticles(centerX, centerY, '#FF69B4', 40);
+    }, 350); // Delay to sync with animation
+
     // Feed all Freddies on screen
     game.freddies.forEach(freddie => {
         if (!freddie.satisfied) {
@@ -727,10 +921,6 @@ function activateTexasDonut() {
             game.score += 100 * game.wave;
         }
     });
-
-    // Create massive particle explosion
-    createParticles(canvas.width / 2, canvas.height / 2, '#FFD700', 50);
-    createParticles(canvas.width / 2, canvas.height / 2, '#FF8C00', 50);
     
     updateUI();
 }
@@ -791,6 +981,8 @@ function startGame() {
     game.donutBoxSpawnTimer = 0;
     game.texasDonutBoxes = [];
     game.texasDonutBoxSpawnTimer = 0;
+    game.texasDonutChunks = [];
+    game.texasDonutShockwaves = [];
     
     document.getElementById('startScreen').classList.add('hidden');
     document.getElementById('gameOverScreen').classList.add('hidden');
