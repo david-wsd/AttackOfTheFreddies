@@ -2,9 +2,35 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
+// Mobile responsive canvas sizing
+function resizeCanvas() {
+    const isMobile = window.innerWidth <= 768;
+    
+    if (isMobile) {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    } else {
+        canvas.width = 1000;
+        canvas.height = 700;
+    }
+}
+
+// Initial resize
+resizeCanvas();
+
+// Resize on orientation change
+window.addEventListener('resize', resizeCanvas);
+window.addEventListener('orientationchange', resizeCanvas);
+
 // Load Freddie image
 const freddieImg = new Image();
 freddieImg.src = 'Freddie.png';
+
+// Store original aspect ratio once image loads
+let freddieAspectRatio = 1; // Default 1:1
+freddieImg.onload = function() {
+    freddieAspectRatio = freddieImg.width / freddieImg.height;
+};
 
 // Game State
 const game = {
@@ -31,7 +57,9 @@ const game = {
     texasDonutBoxes: [], // New: falling Texas donuts to collect
     texasDonutBoxSpawnTimer: 0,
     texasDonutChunks: [], // Explosion chunks
-    texasDonutShockwaves: [] // Shockwave rings
+    texasDonutShockwaves: [], // Shockwave rings
+    lifeHearts: [], // Falling life powerups
+    lifeHeartSpawnTimer: 0
 };
 
 // Texas Donut Configuration
@@ -40,11 +68,13 @@ const TEXAS_DONUT_REQUIRED = 15; // Freddies needed to charge
 // Freddie Class
 class Freddie {
     constructor(wave) {
-        this.x = Math.random() * (canvas.width - 60) + 30;
-        this.y = -50;
-        this.width = 50;
-        this.height = 60;
-        this.speed = 1 + (wave * 0.3); // Gets faster each wave
+        // Base height, width calculated from aspect ratio
+        this.height = 73; // 21% bigger than original (60 * 1.1 * 1.1 ≈ 73)
+        this.width = this.height * freddieAspectRatio; // Maintain aspect ratio
+        
+        this.x = Math.random() * (canvas.width - this.width) + this.width / 2;
+        this.y = -this.height;
+        this.speed = 1 + (wave * 0.15); // Gets faster each wave (reduced from 0.3 to 0.15)
         this.health = 1 + Math.floor(wave / 3); // More health every 3 waves
         this.maxHealth = this.health;
         this.angle = 0;
@@ -325,30 +355,113 @@ class Shockwave {
     }
 }
 
+// Life Heart Class (powerup)
+class LifeHeart {
+    constructor() {
+        this.x = Math.random() * (canvas.width - 80) + 40;
+        this.y = -60;
+        this.width = 40;
+        this.height = 40;
+        this.speed = 1.2;
+        this.wobble = Math.random() * Math.PI * 2;
+        this.pulse = 0;
+        this.health = 1;
+    }
+
+    update() {
+        this.y += this.speed;
+        this.wobble += 0.1;
+        this.x += Math.sin(this.wobble) * 0.6;
+        this.pulse += 0.15;
+
+        // Keep in bounds
+        this.x = Math.max(this.width / 2, Math.min(canvas.width - this.width / 2, this.x));
+
+        // Remove if off screen
+        return this.y > canvas.height + 60;
+    }
+
+    draw() {
+        ctx.save();
+        
+        // Pulsing scale
+        const scale = 1 + Math.sin(this.pulse) * 0.15;
+        
+        // Glow effect
+        const glowGradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.width * 1.5);
+        glowGradient.addColorStop(0, 'rgba(255, 105, 180, 0.4)');
+        glowGradient.addColorStop(0.5, 'rgba(255, 105, 180, 0.2)');
+        glowGradient.addColorStop(1, 'rgba(255, 105, 180, 0)');
+        ctx.fillStyle = glowGradient;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.width * 1.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Draw heart emoji (matching the UI)
+        ctx.font = `${48 * scale}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        // Shadow for depth
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetX = 2;
+        ctx.shadowOffsetY = 2;
+        
+        ctx.fillText('❤️', this.x, this.y);
+        
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+
+        ctx.restore();
+
+        // Draw floating text
+        ctx.save();
+        ctx.fillStyle = '#FF1744';
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'center';
+        ctx.strokeStyle = '#FFF';
+        ctx.lineWidth = 3;
+        ctx.strokeText('+1 Life', this.x, this.y - this.height - 5);
+        ctx.fillText('+1 Life', this.x, this.y - this.height - 5);
+        ctx.restore();
+    }
+
+    hit() {
+        this.health--;
+        return this.health <= 0;
+    }
+}
+
 // Donut Box Class (powerup)
 class DonutBox {
     constructor(wave, isTexasDonut = false) {
         this.x = Math.random() * (canvas.width - 80) + 40;
         this.y = -60;
-        this.width = 50;
-        this.height = 50;
         this.speed = 1.5;
         this.wobble = Math.random() * Math.PI * 2;
         this.rotation = 0;
         this.isTexasDonut = isTexasDonut;
         
         if (isTexasDonut) {
-            // Texas donut box - single hit to collect
+            // Texas donut - appears as a big falling donut
+            this.width = 70;
+            this.height = 70;
             this.health = 1;
             this.maxHealth = 1;
             this.donutReward = 0; // Doesn't give regular donuts
         } else {
+            // Regular box with donuts inside
+            this.width = 50;
+            this.height = 50;
             // Health based on wave difficulty
             this.health = Math.max(2, Math.floor(wave / 2) + 1);
             this.maxHealth = this.health;
             
-            // Reward based on wave difficulty
-            this.donutReward = Math.max(5, 3 + Math.floor(wave / 2) * 2);
+            // Reward based on wave difficulty (minimum 6 donuts to match the 6 donuts shown)
+            this.donutReward = Math.max(6, 4 + Math.floor(wave / 2) * 2);
         }
     }
 
@@ -371,46 +484,102 @@ class DonutBox {
         ctx.rotate(this.rotation);
 
         if (this.isTexasDonut) {
-            // Draw Texas-sized donut box with star
-            ctx.fillStyle = '#8B4513';
-            ctx.strokeStyle = '#FFD700';
-            ctx.lineWidth = 4;
-            ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
-            ctx.strokeRect(-this.width / 2, -this.height / 2, this.width, this.height);
-
-            // Draw Texas star
+            // Draw giant Texas donut (not in a box)
+            const radius = this.width / 2;
+            
+            // Outer glow
+            const glowGradient = ctx.createRadialGradient(0, 0, radius * 0.5, 0, 0, radius * 1.3);
+            glowGradient.addColorStop(0, 'rgba(255, 215, 0, 0)');
+            glowGradient.addColorStop(0.7, 'rgba(255, 215, 0, 0.3)');
+            glowGradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
+            ctx.fillStyle = glowGradient;
+            ctx.beginPath();
+            ctx.arc(0, 0, radius * 1.3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Donut body
+            ctx.fillStyle = '#FFB6C1';
+            ctx.beginPath();
+            ctx.arc(0, 0, radius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Donut hole
+            ctx.fillStyle = '#87CEEB';
+            ctx.beginPath();
+            ctx.arc(0, 0, radius * 0.35, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Frosting (golden for Texas)
             ctx.fillStyle = '#FFD700';
+            ctx.beginPath();
+            ctx.arc(0, 0, radius * 0.85, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Inner hole again
+            ctx.fillStyle = '#87CEEB';
+            ctx.beginPath();
+            ctx.arc(0, 0, radius * 0.35, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Sprinkles (colorful)
+            const sprinkleColors = ['#FF69B4', '#FF8C00', '#FF6347', '#FFD700'];
+            for (let i = 0; i < 12; i++) {
+                const angle = (Math.PI * 2 / 12) * i;
+                const distance = radius * 0.6;
+                const x = Math.cos(angle) * distance;
+                const y = Math.sin(angle) * distance;
+                ctx.fillStyle = sprinkleColors[i % sprinkleColors.length];
+                ctx.fillRect(x - 2, y - 4, 4, 8);
+            }
+            
+            // Texas star in the center
+            ctx.fillStyle = '#FF6347';
             ctx.beginPath();
             for (let i = 0; i < 5; i++) {
                 const angle = (i * 4 * Math.PI) / 5 - Math.PI / 2;
-                const radius = i % 2 === 0 ? 18 : 8;
-                const x = Math.cos(angle) * radius;
-                const y = Math.sin(angle) * radius;
+                const r = i % 2 === 0 ? 8 : 4;
+                const x = Math.cos(angle) * r;
+                const y = Math.sin(angle) * r;
                 if (i === 0) ctx.moveTo(x, y);
                 else ctx.lineTo(x, y);
             }
             ctx.closePath();
             ctx.fill();
-            ctx.strokeStyle = '#FF8C00';
-            ctx.lineWidth = 2;
-            ctx.stroke();
         } else {
-            // Draw regular box
+            // Draw box
             ctx.fillStyle = '#8B4513';
             ctx.strokeStyle = '#FFD700';
             ctx.lineWidth = 3;
             ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
             ctx.strokeRect(-this.width / 2, -this.height / 2, this.width, this.height);
 
-            // Draw donut symbol
-            ctx.fillStyle = '#FFB6C1';
-            ctx.beginPath();
-            ctx.arc(0, 0, 15, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#8B4513';
-            ctx.beginPath();
-            ctx.arc(0, 0, 6, 0, Math.PI * 2);
-            ctx.fill();
+            // Draw 6 little donuts inside the box (2 rows of 3)
+            const donutSize = 6;
+            const spacing = 13;
+            const positions = [
+                [-spacing, -spacing], [0, -spacing], [spacing, -spacing],
+                [-spacing, spacing], [0, spacing], [spacing, spacing]
+            ];
+            
+            positions.forEach(([dx, dy]) => {
+                // Mini donut
+                ctx.fillStyle = '#FFB6C1';
+                ctx.beginPath();
+                ctx.arc(dx, dy, donutSize, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Mini hole
+                ctx.fillStyle = '#8B4513';
+                ctx.beginPath();
+                ctx.arc(dx, dy, donutSize * 0.35, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Mini frosting
+                ctx.fillStyle = '#FF69B4';
+                ctx.beginPath();
+                ctx.arc(dx, dy - donutSize * 0.3, donutSize * 0.4, 0, Math.PI * 2);
+                ctx.fill();
+            });
 
             // Health bar
             if (this.health < this.maxHealth) {
@@ -486,8 +655,10 @@ function startWave() {
     // Reset donut box spawn timer for new wave - less frequent and more random
     game.donutBoxSpawnTimer = 600 + Math.random() * 900; // Spawn between 10-25 seconds
     
-    // Reset Texas donut box spawn timer - rare spawns
-    game.texasDonutBoxSpawnTimer = 900 + Math.random() * 1200; // Spawn between 15-35 seconds
+    // Don't reset Texas donut box timer on wave start - let it continue across waves
+    // This makes them appear roughly once every 2-3 waves
+    
+    // Don't reset life heart timer - let it continue across waves for rare spawns
     
     updateUI();
 }
@@ -520,12 +691,20 @@ function update() {
             game.donutBoxSpawnTimer = 800 + Math.random() * 1200; // 13-33 seconds
         }
 
-        // Spawn Texas donut boxes rarely
+        // Spawn Texas donut boxes occasionally - roughly once every 2-3 waves
         game.texasDonutBoxSpawnTimer--;
         if (game.texasDonutBoxSpawnTimer <= 0 && game.texasDonutBoxes.length < 1) {
             game.texasDonutBoxes.push(new DonutBox(game.wave, true));
-            // Next Texas box spawns after a long random interval
-            game.texasDonutBoxSpawnTimer = 1200 + Math.random() * 1800; // 20-50 seconds
+            // Next Texas box spawns after a long interval (average ~2-3 waves)
+            game.texasDonutBoxSpawnTimer = 2400 + Math.random() * 2400; // 40-80 seconds (spans 2-3 waves)
+        }
+
+        // Spawn life hearts occasionally - roughly once every 2 waves
+        game.lifeHeartSpawnTimer--;
+        if (game.lifeHeartSpawnTimer <= 0 && game.lifeHearts.length < 1) {
+            game.lifeHearts.push(new LifeHeart());
+            // Next life heart spawns after a moderate interval
+            game.lifeHeartSpawnTimer = 1800 + Math.random() * 2400; // 30-70 seconds (spans ~2 waves)
         }
 
         // Check if wave is complete
@@ -580,6 +759,16 @@ function update() {
 
         if (offScreen) {
             game.texasDonutBoxes.splice(i, 1);
+        }
+    }
+
+    // Update life hearts
+    for (let i = game.lifeHearts.length - 1; i >= 0; i--) {
+        const heart = game.lifeHearts[i];
+        const offScreen = heart.update();
+
+        if (offScreen) {
+            game.lifeHearts.splice(i, 1);
         }
     }
 
@@ -638,6 +827,29 @@ function update() {
                 createParticles(box.x, box.y, '#FFD700', 30);
                 createParticles(box.x, box.y, '#FF8C00', 20);
                 game.score += 500;
+                break;
+            }
+        }
+
+        if (donutHit) continue;
+
+        // Check collision with life hearts
+        for (let j = game.lifeHearts.length - 1; j >= 0; j--) {
+            const heart = game.lifeHearts[j];
+            const dx = donut.x - heart.x;
+            const dy = donut.y - heart.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance < donut.radius + heart.width / 2) {
+                // Life heart collected! Award a life
+                game.lives++;
+                game.lifeHearts.splice(j, 1);
+                game.thrownDonuts.splice(i, 1);
+                donutHit = true;
+                createParticles(heart.x, heart.y, '#FF1744', 30);
+                createParticles(heart.x, heart.y, '#FF69B4', 20);
+                createParticles(heart.x, heart.y, '#FFF', 15);
+                game.score += 1000;
                 break;
             }
         }
@@ -750,6 +962,9 @@ function draw() {
     
     // Draw Texas donut boxes
     game.texasDonutBoxes.forEach(box => box.draw());
+
+    // Draw life hearts
+    game.lifeHearts.forEach(heart => heart.draw());
 
     // Draw Freddies
     game.freddies.forEach(freddie => freddie.draw());
@@ -980,9 +1195,11 @@ function startGame() {
     game.donutBoxes = [];
     game.donutBoxSpawnTimer = 0;
     game.texasDonutBoxes = [];
-    game.texasDonutBoxSpawnTimer = 0;
+    game.texasDonutBoxSpawnTimer = 1800 + Math.random() * 1800; // First one appears 30-60 seconds into game
     game.texasDonutChunks = [];
     game.texasDonutShockwaves = [];
+    game.lifeHearts = [];
+    game.lifeHeartSpawnTimer = 1200 + Math.random() * 1800; // First one appears 20-50 seconds into game
     
     document.getElementById('startScreen').classList.add('hidden');
     document.getElementById('gameOverScreen').classList.add('hidden');
@@ -1011,23 +1228,62 @@ function gameOver() {
     document.getElementById('gameOverScreen').classList.remove('hidden');
 }
 
-// Mouse click to throw donut
-canvas.addEventListener('click', (e) => {
+// Mouse click AND touch support to throw donut
+function handleThrow(e) {
     if (game.state !== 'playing' || game.donuts <= 0) return;
 
+    e.preventDefault(); // Prevent default touch behavior
+
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    let x, y;
+
+    // Handle both mouse and touch events
+    if (e.type === 'touchstart' || e.type === 'touchend') {
+        const touch = e.changedTouches[0];
+        x = touch.clientX - rect.left;
+        y = touch.clientY - rect.top;
+    } else {
+        x = e.clientX - rect.left;
+        y = e.clientY - rect.top;
+    }
+
+    // Scale coordinates if canvas is scaled
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    x *= scaleX;
+    y *= scaleY;
 
     game.thrownDonuts.push(new Donut(canvas.width / 2, canvas.height - 50, x, y));
     game.donuts--;
     updateUI();
-});
+}
+
+// Add both mouse and touch listeners
+canvas.addEventListener('click', handleThrow);
+canvas.addEventListener('touchstart', handleThrow);
+
+// Prevent default touch behaviors on canvas
+canvas.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+canvas.addEventListener('touchend', (e) => e.preventDefault(), { passive: false });
 
 // Event listeners
 document.getElementById('startButton').addEventListener('click', startGame);
+document.getElementById('startButton').addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    startGame();
+});
+
 document.getElementById('restartButton').addEventListener('click', startGame);
+document.getElementById('restartButton').addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    startGame();
+});
+
 document.getElementById('texasButton').addEventListener('click', activateTexasDonut);
+document.getElementById('texasButton').addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    activateTexasDonut();
+});
 
 // Keyboard shortcut for Texas Donut (Spacebar)
 document.addEventListener('keydown', (e) => {
