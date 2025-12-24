@@ -83,15 +83,20 @@ class Freddie {
         this.x = Math.random() * (canvas.width - this.width) + this.width / 2;
         this.y = -this.height;
         
-        // Speed: Asymptotically approaches 2.5
-        const maxSpeed = 2.5;
-        const speedGrowthRate = 0.15;
-        this.speed = 1 + (maxSpeed - 1) * (1 - Math.exp(-speedGrowthRate * wave));
-        
-        // Health: Square root growth (slower, more predictable)
+        // Health: Square root growth (slower, more predictable), capped at 4
         // Wave 1-3: 1 health, Wave 4-8: 2 health, Wave 9-15: 3 health, etc.
         this.health = Math.min(4, Math.floor(Math.sqrt(Math.max(0, wave - 1) / 2.1)) + 1);
         this.maxHealth = this.health;
+        
+        // Speed: Asymptotically approaches 2.5, but reduced by health
+        const maxSpeed = 2.5;
+        const speedGrowthRate = 0.15;
+        const baseSpeed = 1 + (maxSpeed - 1) * (1 - Math.exp(-speedGrowthRate * wave));
+        
+        // Speed penalty based on health: more health = slower movement
+        // Health 1: 100% speed, Health 2: 90%, Health 3: 82%, Health 4: 75%
+        const healthSpeedMultiplier = 1 / Math.sqrt(this.health);
+        this.speed = baseSpeed * healthSpeedMultiplier;
         this.angle = 0;
         this.wobble = Math.random() * Math.PI * 2;
         
@@ -662,7 +667,7 @@ function createParticles(x, y, color, count = 10) {
 function calculateDonutsNeeded(wave) {
     // Use the same formulas as the actual game
     const freddieCount = Math.floor(5 + 3 * Math.log(wave + 1) * wave / 2);
-    const healthPerFreddie = Math.floor(Math.sqrt(Math.max(0, wave - 1) / 1.5)) + 1;
+    const healthPerFreddie = Math.min(4, Math.floor(Math.sqrt(Math.max(0, wave - 1) / 2.1)) + 1);
     return freddieCount * healthPerFreddie;
 }
 
