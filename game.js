@@ -23,11 +23,13 @@ const game = {
     freddiesSpawned: 0,
     donutRegenTimer: 0,
     texasDonutProgress: 0,
-    texasDonutReady: false,
+    texasDonutCount: 0, // Changed to count stockpiled Texas donuts
     texasDonutActive: false,
     texasDonutAnimation: 0,
     donutBoxes: [],
-    donutBoxSpawnTimer: 0
+    donutBoxSpawnTimer: 0,
+    texasDonutBoxes: [], // New: falling Texas donuts to collect
+    texasDonutBoxSpawnTimer: 0
 };
 
 // Texas Donut Configuration
@@ -226,7 +228,7 @@ class Particle {
 
 // Donut Box Class (powerup)
 class DonutBox {
-    constructor(wave) {
+    constructor(wave, isTexasDonut = false) {
         this.x = Math.random() * (canvas.width - 80) + 40;
         this.y = -60;
         this.width = 50;
@@ -234,13 +236,21 @@ class DonutBox {
         this.speed = 1.5;
         this.wobble = Math.random() * Math.PI * 2;
         this.rotation = 0;
+        this.isTexasDonut = isTexasDonut;
         
-        // Health based on wave difficulty
-        this.health = Math.max(2, Math.floor(wave / 2) + 1);
-        this.maxHealth = this.health;
-        
-        // Reward based on wave difficulty
-        this.donutReward = Math.max(5, 3 + Math.floor(wave / 2) * 2);
+        if (isTexasDonut) {
+            // Texas donut box - single hit to collect
+            this.health = 1;
+            this.maxHealth = 1;
+            this.donutReward = 0; // Doesn't give regular donuts
+        } else {
+            // Health based on wave difficulty
+            this.health = Math.max(2, Math.floor(wave / 2) + 1);
+            this.maxHealth = this.health;
+            
+            // Reward based on wave difficulty
+            this.donutReward = Math.max(5, 3 + Math.floor(wave / 2) * 2);
+        }
     }
 
     update() {
@@ -261,44 +271,82 @@ class DonutBox {
         ctx.translate(this.x, this.y);
         ctx.rotate(this.rotation);
 
-        // Draw box
-        ctx.fillStyle = '#8B4513';
-        ctx.strokeStyle = '#FFD700';
-        ctx.lineWidth = 3;
-        ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
-        ctx.strokeRect(-this.width / 2, -this.height / 2, this.width, this.height);
+        if (this.isTexasDonut) {
+            // Draw Texas-sized donut box with star
+            ctx.fillStyle = '#8B4513';
+            ctx.strokeStyle = '#FFD700';
+            ctx.lineWidth = 4;
+            ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
+            ctx.strokeRect(-this.width / 2, -this.height / 2, this.width, this.height);
 
-        // Draw donut symbol
-        ctx.fillStyle = '#FFB6C1';
-        ctx.beginPath();
-        ctx.arc(0, 0, 15, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#8B4513';
-        ctx.beginPath();
-        ctx.arc(0, 0, 6, 0, Math.PI * 2);
-        ctx.fill();
+            // Draw Texas star
+            ctx.fillStyle = '#FFD700';
+            ctx.beginPath();
+            for (let i = 0; i < 5; i++) {
+                const angle = (i * 4 * Math.PI) / 5 - Math.PI / 2;
+                const radius = i % 2 === 0 ? 18 : 8;
+                const x = Math.cos(angle) * radius;
+                const y = Math.sin(angle) * radius;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = '#FF8C00';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        } else {
+            // Draw regular box
+            ctx.fillStyle = '#8B4513';
+            ctx.strokeStyle = '#FFD700';
+            ctx.lineWidth = 3;
+            ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
+            ctx.strokeRect(-this.width / 2, -this.height / 2, this.width, this.height);
 
-        // Health bar
-        if (this.health < this.maxHealth) {
-            ctx.globalAlpha = 1;
-            ctx.fillStyle = '#FF0000';
-            ctx.fillRect(-this.width * 0.4, this.height * 0.6, this.width * 0.8, 5);
-            ctx.fillStyle = '#00FF00';
-            ctx.fillRect(-this.width * 0.4, this.height * 0.6, this.width * 0.8 * (this.health / this.maxHealth), 5);
+            // Draw donut symbol
+            ctx.fillStyle = '#FFB6C1';
+            ctx.beginPath();
+            ctx.arc(0, 0, 15, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#8B4513';
+            ctx.beginPath();
+            ctx.arc(0, 0, 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Health bar
+            if (this.health < this.maxHealth) {
+                ctx.globalAlpha = 1;
+                ctx.fillStyle = '#FF0000';
+                ctx.fillRect(-this.width * 0.4, this.height * 0.6, this.width * 0.8, 5);
+                ctx.fillStyle = '#00FF00';
+                ctx.fillRect(-this.width * 0.4, this.height * 0.6, this.width * 0.8 * (this.health / this.maxHealth), 5);
+            }
         }
 
         ctx.restore();
 
         // Draw floating text showing reward
-        ctx.save();
-        ctx.fillStyle = '#FFD700';
-        ctx.font = 'bold 14px Arial';
-        ctx.textAlign = 'center';
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 3;
-        ctx.strokeText(`+${this.donutReward}🍩`, this.x, this.y - this.height);
-        ctx.fillText(`+${this.donutReward}🍩`, this.x, this.y - this.height);
-        ctx.restore();
+        if (!this.isTexasDonut) {
+            ctx.save();
+            ctx.fillStyle = '#FFD700';
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 3;
+            ctx.strokeText(`+${this.donutReward}🍩`, this.x, this.y - this.height);
+            ctx.fillText(`+${this.donutReward}🍩`, this.x, this.y - this.height);
+            ctx.restore();
+        } else {
+            ctx.save();
+            ctx.fillStyle = '#FFD700';
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 3;
+            ctx.strokeText('🌟 TEXAS 🌟', this.x, this.y - this.height);
+            ctx.fillText('🌟 TEXAS 🌟', this.x, this.y - this.height);
+            ctx.restore();
+        }
     }
 
     hit() {
@@ -336,8 +384,11 @@ function startWave() {
     const maxDonuts = donutsNeeded + donutsToGive;
     game.donuts = Math.min(game.donuts + donutsToGive, maxDonuts);
     
-    // Reset donut box spawn timer for new wave
-    game.donutBoxSpawnTimer = 300 + Math.random() * 300; // Spawn between 5-10 seconds
+    // Reset donut box spawn timer for new wave - less frequent and more random
+    game.donutBoxSpawnTimer = 600 + Math.random() * 900; // Spawn between 10-25 seconds
+    
+    // Reset Texas donut box spawn timer - rare spawns
+    game.texasDonutBoxSpawnTimer = 900 + Math.random() * 1200; // Spawn between 15-35 seconds
     
     updateUI();
 }
@@ -362,12 +413,20 @@ function update() {
             spawnFreddie();
         }
 
-        // Spawn donut boxes occasionally
+        // Spawn donut boxes occasionally - less frequent and more random
         game.donutBoxSpawnTimer--;
-        if (game.donutBoxSpawnTimer <= 0 && game.donutBoxes.length < 2) {
-            game.donutBoxes.push(new DonutBox(game.wave));
-            // Next box spawns after a random interval
-            game.donutBoxSpawnTimer = 400 + Math.random() * 400; // 6-13 seconds
+        if (game.donutBoxSpawnTimer <= 0 && game.donutBoxes.length < 1) {
+            game.donutBoxes.push(new DonutBox(game.wave, false));
+            // Next box spawns after a longer random interval
+            game.donutBoxSpawnTimer = 800 + Math.random() * 1200; // 13-33 seconds
+        }
+
+        // Spawn Texas donut boxes rarely
+        game.texasDonutBoxSpawnTimer--;
+        if (game.texasDonutBoxSpawnTimer <= 0 && game.texasDonutBoxes.length < 1) {
+            game.texasDonutBoxes.push(new DonutBox(game.wave, true));
+            // Next Texas box spawns after a long random interval
+            game.texasDonutBoxSpawnTimer = 1200 + Math.random() * 1800; // 20-50 seconds
         }
 
         // Check if wave is complete
@@ -415,6 +474,16 @@ function update() {
         }
     }
 
+    // Update Texas donut boxes
+    for (let i = game.texasDonutBoxes.length - 1; i >= 0; i--) {
+        const box = game.texasDonutBoxes[i];
+        const offScreen = box.update();
+
+        if (offScreen) {
+            game.texasDonutBoxes.splice(i, 1);
+        }
+    }
+
     // Update donuts
     for (let i = game.thrownDonuts.length - 1; i >= 0; i--) {
         const donut = game.thrownDonuts[i];
@@ -425,7 +494,7 @@ function update() {
             continue;
         }
 
-        // Check collision with donut boxes first
+        // Check collision with regular donut boxes first
         let donutHit = false;
         for (let j = game.donutBoxes.length - 1; j >= 0; j--) {
             const box = game.donutBoxes[j];
@@ -454,6 +523,28 @@ function update() {
 
         if (donutHit) continue;
 
+        // Check collision with Texas donut boxes
+        for (let j = game.texasDonutBoxes.length - 1; j >= 0; j--) {
+            const box = game.texasDonutBoxes[j];
+            const dx = donut.x - box.x;
+            const dy = donut.y - box.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance < donut.radius + box.width / 2) {
+                // Texas box collected! Award a Texas donut
+                game.texasDonutCount++;
+                game.texasDonutBoxes.splice(j, 1);
+                game.thrownDonuts.splice(i, 1);
+                donutHit = true;
+                createParticles(box.x, box.y, '#FFD700', 30);
+                createParticles(box.x, box.y, '#FF8C00', 20);
+                game.score += 500;
+                break;
+            }
+        }
+
+        if (donutHit) continue;
+
         // Check collision with Freddies
         for (let j = game.freddies.length - 1; j >= 0; j--) {
             const freddie = game.freddies[j];
@@ -464,11 +555,11 @@ function update() {
                 game.score += 10;
                 
                 // Add progress to Texas Donut when Freddie is fully satisfied
-                if (satisfied && !game.texasDonutReady) {
+                if (satisfied) {
                     game.texasDonutProgress++;
                     if (game.texasDonutProgress >= TEXAS_DONUT_REQUIRED) {
-                        game.texasDonutReady = true;
-                        game.texasDonutProgress = TEXAS_DONUT_REQUIRED;
+                        game.texasDonutCount++; // Award a Texas donut!
+                        game.texasDonutProgress = 0; // Reset progress for next one
                         createParticles(canvas.width / 2, 100, '#FFD700', 30);
                     }
                 }
@@ -543,6 +634,9 @@ function draw() {
 
     // Draw donut boxes
     game.donutBoxes.forEach(box => box.draw());
+    
+    // Draw Texas donut boxes
+    game.texasDonutBoxes.forEach(box => box.draw());
 
     // Draw Freddies
     game.freddies.forEach(freddie => freddie.draw());
@@ -620,12 +714,11 @@ function drawClouds() {
 
 // Activate Texas Donut
 function activateTexasDonut() {
-    if (!game.texasDonutReady || game.texasDonutActive) return;
+    if (game.texasDonutCount <= 0 || game.texasDonutActive) return;
 
     game.texasDonutActive = true;
     game.texasDonutAnimation = 0;
-    game.texasDonutReady = false;
-    game.texasDonutProgress = 0;
+    game.texasDonutCount--; // Use one Texas donut from stockpile
 
     // Feed all Freddies on screen
     game.freddies.forEach(freddie => {
@@ -649,25 +742,26 @@ function updateUI() {
     document.getElementById('wave').textContent = game.wave;
     document.getElementById('score').textContent = game.score;
     
-    // Update Texas Donut progress
-    const progressBar = document.getElementById('texasProgress');
+    // Update Texas Donut count and progress
     const texasButton = document.getElementById('texasButton');
+    const progressBar = document.getElementById('texasProgress');
     
     if (progressBar) {
         progressBar.style.width = (game.texasDonutProgress / TEXAS_DONUT_REQUIRED * 100) + '%';
     }
     
     if (texasButton) {
-        if (game.texasDonutReady) {
+        if (game.texasDonutCount > 0) {
             texasButton.classList.add('ready');
             texasButton.disabled = false;
+            texasButton.textContent = game.texasDonutCount === 1 
+                ? '🌟 TEXAS DONUT (1) 🌟' 
+                : `🌟 TEXAS DONUTS (${game.texasDonutCount}) 🌟`;
         } else {
             texasButton.classList.remove('ready');
             texasButton.disabled = true;
+            texasButton.textContent = `Texas: ${game.texasDonutProgress}/${TEXAS_DONUT_REQUIRED}`;
         }
-        texasButton.textContent = game.texasDonutReady 
-            ? '🌟 TEXAS DONUT READY! 🌟' 
-            : `Texas Donut: ${game.texasDonutProgress}/${TEXAS_DONUT_REQUIRED}`;
     }
 }
 
@@ -690,11 +784,13 @@ function startGame() {
     game.particles = [];
     game.donutRegenTimer = 0;
     game.texasDonutProgress = 0;
-    game.texasDonutReady = false;
+    game.texasDonutCount = 0;
     game.texasDonutActive = false;
     game.texasDonutAnimation = 0;
     game.donutBoxes = [];
     game.donutBoxSpawnTimer = 0;
+    game.texasDonutBoxes = [];
+    game.texasDonutBoxSpawnTimer = 0;
     
     document.getElementById('startScreen').classList.add('hidden');
     document.getElementById('gameOverScreen').classList.add('hidden');
@@ -743,7 +839,7 @@ document.getElementById('texasButton').addEventListener('click', activateTexasDo
 
 // Keyboard shortcut for Texas Donut (Spacebar)
 document.addEventListener('keydown', (e) => {
-    if (e.code === 'Space' && game.state === 'playing' && game.texasDonutReady) {
+    if (e.code === 'Space' && game.state === 'playing' && game.texasDonutCount > 0) {
         e.preventDefault();
         activateTexasDonut();
     }

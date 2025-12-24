@@ -123,15 +123,14 @@
 
         #texasDonutUI {
             position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
+            top: 80px;
+            right: 20px;
             text-align: center;
         }
 
         #texasButton {
-            padding: 12px 30px;
-            font-size: 18px;
+            padding: 12px 24px;
+            font-size: 16px;
             font-weight: bold;
             background: linear-gradient(135deg, #8B4513, #D2691E);
             color: white;
@@ -141,7 +140,7 @@
             transition: all 0.3s;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
             opacity: 0.6;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
 
         #texasButton:disabled {
@@ -172,10 +171,10 @@
         }
 
         #texasProgressBar {
-            width: 300px;
-            height: 20px;
+            width: 200px;
+            height: 15px;
             background: rgba(0, 0, 0, 0.7);
-            border-radius: 10px;
+            border-radius: 8px;
             overflow: hidden;
             border: 2px solid #FFD700;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
@@ -218,7 +217,7 @@
         </div>
 
         <div id="texasDonutUI">
-            <button id="texasButton" disabled>Texas Donut: 0/15</button>
+            <button id="texasButton" disabled>Texas: 0/15</button>
             <div id="texasProgressBar">
                 <div id="texasProgress"></div>
             </div>
@@ -233,8 +232,8 @@
                 Each wave gets faster and brings more Freddies!<br>
                 Don't let them reach the bottom or you'll lose a life!<br><br>
                 <strong>🌟 SPECIAL WEAPON: THE TEXAS DONUT 🌟</strong><br>
-                Feed 15 Freddies to bake the massive Texas Donut!<br>
-                When ready, click the button (or press SPACE) to feed ALL Freddies at once!
+                Feed 15 Freddies to earn a Texas Donut, or collect falling Texas Donut boxes!<br>
+                Stockpile multiple Texas Donuts and use them (click button or press SPACE) to feed ALL Freddies at once!
             </p>
             <button id="startButton">START GAME</button>
         </div>
