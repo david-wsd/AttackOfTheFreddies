@@ -654,8 +654,10 @@ function startWave() {
     
     // Calculate how many donuts are needed for this wave
     const donutsNeeded = calculateDonutsNeeded(game.wave);
-    // Give enough donuts plus 30% extra for misses (minimum 3 extra)
-    const donutsToGive = Math.ceil(donutsNeeded * 0.3) + Math.max(3, Math.floor(donutsNeeded * 0.1));
+    // Give enough donuts plus extra for misses (50% extra on mobile, 30% on desktop)
+    const isMobile = canvas.width <= 768;
+    const extraPercent = isMobile ? 0.5 : 0.3;
+    const donutsToGive = Math.ceil(donutsNeeded * extraPercent) + Math.max(5, Math.floor(donutsNeeded * 0.15));
     // Add donuts but don't exceed a reasonable cap (needed + extras)
     const maxDonuts = donutsNeeded + donutsToGive;
     game.donuts = Math.min(game.donuts + donutsToGive, maxDonuts);
@@ -920,7 +922,10 @@ function update() {
     // Regenerate donuts slowly (but with higher cap based on wave)
     game.donutRegenTimer++;
     const donutCap = calculateDonutsNeeded(game.wave) + Math.ceil(calculateDonutsNeeded(game.wave) * 0.4);
-    if (game.donutRegenTimer > 180 && game.donuts < donutCap) { // Every 3 seconds
+    // Faster regeneration on mobile (every 2 seconds vs 3 seconds on desktop)
+    const isMobile = canvas.width <= 768;
+    const regenInterval = isMobile ? 120 : 180; // 2 seconds on mobile, 3 seconds on desktop
+    if (game.donutRegenTimer > regenInterval && game.donuts < donutCap) {
         game.donuts++;
         game.donutRegenTimer = 0;
     }
@@ -1197,7 +1202,9 @@ function startGame() {
     game.wave = 1;
     game.score = 0;
     game.lives = 3;
-    game.donuts = 10;
+    // More starting donuts on mobile for easier aiming
+    const isMobile = canvas.width <= 768;
+    game.donuts = isMobile ? 15 : 10;
     game.freddies = [];
     game.thrownDonuts = [];
     game.particles = [];
