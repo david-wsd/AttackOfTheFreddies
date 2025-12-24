@@ -654,13 +654,12 @@ function startWave() {
     
     // Calculate how many donuts are needed for this wave
     const donutsNeeded = calculateDonutsNeeded(game.wave);
-    // Give enough donuts plus extra for misses (50% extra on mobile, 30% on desktop)
-    const isMobile = canvas.width <= 768;
-    const extraPercent = isMobile ? 0.5 : 0.3;
-    const donutsToGive = Math.ceil(donutsNeeded * extraPercent) + Math.max(5, Math.floor(donutsNeeded * 0.15));
-    // Add donuts but don't exceed a reasonable cap (needed + extras)
-    const maxDonuts = donutsNeeded + donutsToGive;
-    game.donuts = Math.min(game.donuts + donutsToGive, maxDonuts);
+    // Give FULL amount needed PLUS 20% extra for misses
+    const extraPercent = 0.2;
+    const extraDonuts = Math.ceil(donutsNeeded * extraPercent);
+    const donutsToGive = donutsNeeded + extraDonuts; // Full amount + 20% extra
+    // Set donuts to the amount needed (don't add to existing, replace)
+    game.donuts = donutsToGive;
     
     // Reset donut box spawn timer for new wave - less frequent and more random
     game.donutBoxSpawnTimer = 600 + Math.random() * 900; // Spawn between 10-25 seconds
