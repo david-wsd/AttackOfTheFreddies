@@ -1189,10 +1189,21 @@ function updateUI() {
     }
 }
 
-// Game loop
-function gameLoop() {
-    update();
-    draw();
+// Game loop with frame rate independence
+let lastFrameTime = performance.now();
+const targetFPS = 60;
+const targetFrameTime = 1000 / targetFPS;
+
+function gameLoop(currentTime) {
+    const deltaTime = currentTime - lastFrameTime;
+    
+    // Only update if enough time has passed (cap at 60 FPS)
+    if (deltaTime >= targetFrameTime) {
+        update();
+        draw();
+        lastFrameTime = currentTime - (deltaTime % targetFrameTime);
+    }
+    
     requestAnimationFrame(gameLoop);
 }
 
