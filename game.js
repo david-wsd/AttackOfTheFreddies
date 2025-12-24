@@ -27,9 +27,11 @@ const freddieImg = new Image();
 freddieImg.src = 'Freddie.png';
 
 // Store original aspect ratio once image loads
-let freddieAspectRatio = 1; // Default 1:1
+let freddieAspectRatio = 0.833; // Default aspect ratio (50/60 from original dimensions)
+let freddieImageLoaded = false;
 freddieImg.onload = function() {
     freddieAspectRatio = freddieImg.width / freddieImg.height;
+    freddieImageLoaded = true;
 };
 
 // Game State
@@ -70,7 +72,13 @@ class Freddie {
     constructor(wave) {
         // Base height, width calculated from aspect ratio
         this.height = 73; // 21% bigger than original (60 * 1.1 * 1.1 ≈ 73)
-        this.width = this.height * freddieAspectRatio; // Maintain aspect ratio
+        
+        // Use actual image aspect ratio if loaded, otherwise use calculated ratio
+        if (freddieImageLoaded && freddieImg.naturalWidth && freddieImg.naturalHeight) {
+            this.width = this.height * (freddieImg.naturalWidth / freddieImg.naturalHeight);
+        } else {
+            this.width = this.height * freddieAspectRatio; // Use default/calculated ratio
+        }
         
         this.x = Math.random() * (canvas.width - this.width) + this.width / 2;
         this.y = -this.height;
@@ -942,11 +950,17 @@ function draw() {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
         ctx.fillRect(0, canvas.height / 2 - 50, canvas.width, 100);
         ctx.fillStyle = '#FFD700';
-        ctx.font = 'bold 48px Arial';
+        
+        // Responsive font size based on canvas width
+        const isMobile = canvas.width <= 768;
+        const titleSize = isMobile ? Math.min(32, canvas.width * 0.08) : 48;
+        const subtitleSize = isMobile ? Math.min(18, canvas.width * 0.045) : 24;
+        
+        ctx.font = `bold ${titleSize}px Arial`;
         ctx.textAlign = 'center';
         ctx.fillText(`Wave ${game.wave} Complete!`, canvas.width / 2, canvas.height / 2);
         ctx.fillStyle = '#FFF';
-        ctx.font = 'bold 24px Arial';
+        ctx.font = `bold ${subtitleSize}px Arial`;
         ctx.fillText(`Next wave incoming...`, canvas.width / 2, canvas.height / 2 + 40);
         ctx.restore();
     }
@@ -1235,32 +1249,36 @@ function handleThrow(e) {
     e.preventDefault(); // Prevent default touch behavior
 
     const rect = canvas.getBoundingClientRect();
-    let x, y;
+    let clientX, clientY;
 
     // Handle both mouse and touch events
     if (e.type === 'touchstart' || e.type === 'touchend') {
         const touch = e.changedTouches[0];
-        x = touch.clientX - rect.left;
-        y = touch.clientY - rect.top;
+        clientX = touch.clientX;
+        clientY = touch.clientY;
     } else {
-        x = e.clientX - rect.left;
-        y = e.clientY - rect.top;
+        clientX = e.clientX;
+        clientY = e.clientY;
     }
 
-    // Scale coordinates if canvas is scaled
+    // Get position relative to canvas
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+
+    // Scale coordinates to match canvas internal dimensions
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
-    x *= scaleX;
-    y *= scaleY;
+    const canvasX = x * scaleX;
+    const canvasY = y * scaleY;
 
-    game.thrownDonuts.push(new Donut(canvas.width / 2, canvas.height - 50, x, y));
+    game.thrownDonuts.push(new Donut(canvas.width / 2, canvas.height - 50, canvasX, canvasY));
     game.donuts--;
     updateUI();
 }
 
 // Add both mouse and touch listeners
 canvas.addEventListener('click', handleThrow);
-canvas.addEventListener('touchstart', handleThrow);
+canvas.addEventListener('touchend', handleThrow); // Changed from touchstart to touchend for better accuracy
 
 // Prevent default touch behaviors on canvas
 canvas.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
