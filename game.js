@@ -82,14 +82,34 @@ class Freddie {
         
         this.x = Math.random() * (canvas.width - this.width) + this.width / 2;
         this.y = -this.height;
-        this.speed = 1 + (wave * 0.15); // Gets faster each wave (reduced from 0.3 to 0.15)
-        this.health = 1 + Math.floor(wave / 3); // More health every 3 waves
+        
+        // Speed: Asymptotically approaches 2.5
+        const maxSpeed = 2.5;
+        const speedGrowthRate = 0.15;
+        this.speed = 1 + (maxSpeed - 1) * (1 - Math.exp(-speedGrowthRate * wave));
+        
+        // Health: Square root growth (slower, more predictable)
+        // Wave 1-3: 1 health, Wave 4-8: 2 health, Wave 9-15: 3 health, etc.
+        this.health = Math.min(4, Math.floor(Math.sqrt(Math.max(0, wave - 1) / 2.1)) + 1);
         this.maxHealth = this.health;
         this.angle = 0;
         this.wobble = Math.random() * Math.PI * 2;
+        
+        // Movement complexity increases with wave
+        this.wobbleSpeed = 0.1 + (wave * 0.005);
+        this.wobbleAmplitude = 0.5 + Math.min(2, wave * 0.05);
+        
         this.satisfied = false;
         this.satisfiedTimer = 0;
-        this.hue = Math.random() * 60 - 30; // Color variation
+        
+        // More color variation in later waves
+        this.hue = Math.random() * Math.min(120, 30 + wave * 3) - Math.min(60, 15 + wave * 1.5);
+        
+        // Occasional smaller Freddies in later waves (harder to hit)
+        if (wave > 10 && Math.random() < 0.15) {
+            this.width *= 0.85;
+            this.height *= 0.85;
+        }
     }
 
     update() {
@@ -103,8 +123,8 @@ class Freddie {
         }
 
         this.y += this.speed;
-        this.wobble += 0.1;
-        this.x += Math.sin(this.wobble) * 0.5;
+        this.wobble += this.wobbleSpeed;
+        this.x += Math.sin(this.wobble) * this.wobbleAmplitude;
 
         // Keep in bounds
         this.x = Math.max(this.width / 2, Math.min(canvas.width - this.width / 2, this.x));
@@ -640,15 +660,17 @@ function createParticles(x, y, color, count = 10) {
 
 // Calculate donuts needed for a wave
 function calculateDonutsNeeded(wave) {
-    const freddieCount = 3 + wave * 2;
-    const healthPerFreddie = 1 + Math.floor(wave / 3);
+    // Use the same formulas as the actual game
+    const freddieCount = Math.floor(5 + 3 * Math.log(wave + 1) * wave / 2);
+    const healthPerFreddie = Math.floor(Math.sqrt(Math.max(0, wave - 1) / 1.5)) + 1;
     return freddieCount * healthPerFreddie;
 }
 
 // Start new wave
 function startWave() {
     game.waveComplete = false;
-    game.freddiesToSpawn = 3 + game.wave * 2; // More Freddies each wave
+    // Freddie count: Logarithmic growth (increases but slows down)
+    game.freddiesToSpawn = Math.floor(5 + 3 * Math.log(game.wave + 1) * game.wave / 2);
     game.freddiesSpawned = 0;
     game.spawnTimer = 0;
     
@@ -677,7 +699,11 @@ function spawnFreddie() {
     if (game.freddiesSpawned < game.freddiesToSpawn) {
         game.freddies.push(new Freddie(game.wave));
         game.freddiesSpawned++;
-        game.spawnTimer = 60 - game.wave * 2; // Spawn faster each wave
+        
+        // Spawn rate: Asymptotically approaches 30 frames (0.5 sec)
+        const minRate = 30;
+        const maxRate = 65;
+        game.spawnTimer = Math.floor(minRate + (maxRate - minRate) * Math.exp(-0.08 * game.wave));
     }
 }
 
@@ -700,20 +726,24 @@ function update() {
             game.donutBoxSpawnTimer = 800 + Math.random() * 1200; // 13-33 seconds
         }
 
-        // Spawn Texas donut boxes occasionally - roughly once every 2-3 waves
+        // Spawn Texas donut boxes - more frequent at higher waves
         game.texasDonutBoxSpawnTimer--;
         if (game.texasDonutBoxSpawnTimer <= 0 && game.texasDonutBoxes.length < 1) {
             game.texasDonutBoxes.push(new DonutBox(game.wave, true));
-            // Next Texas box spawns after a long interval (average ~2-3 waves)
-            game.texasDonutBoxSpawnTimer = 2400 + Math.random() * 2400; // 40-80 seconds (spans 2-3 waves)
+            // More frequent at higher waves to help with difficulty
+            const baseInterval = 2400;
+            const waveBonus = Math.max(0.5, 1 - (game.wave * 0.015)); // Gets more frequent
+            game.texasDonutBoxSpawnTimer = Math.floor(baseInterval * waveBonus + Math.random() * 1800);
         }
 
-        // Spawn life hearts occasionally - roughly once every 2 waves
+        // Spawn life hearts - more frequent at higher waves
         game.lifeHeartSpawnTimer--;
         if (game.lifeHeartSpawnTimer <= 0 && game.lifeHearts.length < 1) {
             game.lifeHearts.push(new LifeHeart());
-            // Next life heart spawns after a moderate interval
-            game.lifeHeartSpawnTimer = 1800 + Math.random() * 2400; // 30-70 seconds (spans ~2 waves)
+            // More frequent at higher waves to compensate for difficulty
+            const baseInterval = 1800;
+            const waveBonus = Math.max(0.4, 1 - (game.wave * 0.02)); // Gets more frequent
+            game.lifeHeartSpawnTimer = Math.floor(baseInterval * waveBonus + Math.random() * 1200);
         }
 
         // Check if wave is complete
