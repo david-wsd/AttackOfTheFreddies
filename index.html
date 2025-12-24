@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attack of the Freddies</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        #gameContainer {
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        #gameCanvas {
+            display: block;
+            background: linear-gradient(180deg, #87CEEB 0%, #98D8E8 50%, #90EE90 100%);
+            cursor: crosshair;
+        }
+
+        #ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        #ui div {
+            display: flex;
+            gap: 20px;
+        }
+
+        .stat {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #startScreen, #gameOverScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            text-align: center;
+        }
+
+        #startScreen h1, #gameOverScreen h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #FFD700;
+            text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.8);
+        }
+
+        #startScreen p, #gameOverScreen p {
+            font-size: 20px;
+            margin-bottom: 30px;
+            max-width: 600px;
+            line-height: 1.6;
+        }
+
+        button {
+            padding: 15px 40px;
+            font-size: 24px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #FF6B6B, #FF8E53);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(255, 107, 107, 0.6);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        #gameOverScreen .score {
+            font-size: 32px;
+            margin: 20px 0;
+            color: #FFD700;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        #texasDonutUI {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+        }
+
+        #texasButton {
+            padding: 12px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #8B4513, #D2691E);
+            color: white;
+            border: 3px solid #FFD700;
+            border-radius: 25px;
+            cursor: not-allowed;
+            transition: all 0.3s;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+            opacity: 0.6;
+            margin-bottom: 10px;
+        }
+
+        #texasButton:disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        #texasButton.ready {
+            background: linear-gradient(135deg, #FFD700, #FF8C00);
+            cursor: pointer;
+            opacity: 1;
+            animation: pulse 1s infinite;
+            box-shadow: 0 0 20px #FFD700;
+        }
+
+        #texasButton.ready:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px #FFD700;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+        }
+
+        #texasProgressBar {
+            width: 300px;
+            height: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            overflow: hidden;
+            border: 2px solid #FFD700;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+        }
+
+        #texasProgress {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #FFD700, #FF8C00, #FF6347);
+            transition: width 0.3s ease;
+            box-shadow: 0 0 10px #FFD700;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="1000" height="700"></canvas>
+        
+        <div id="ui">
+            <div>
+                <div class="stat">
+                    <span>❤️ Lives:</span>
+                    <span id="lives">3</span>
+                </div>
+                <div class="stat">
+                    <span>🍩 Donuts:</span>
+                    <span id="donuts">10</span>
+                </div>
+            </div>
+            <div>
+                <div class="stat">
+                    <span>🌊 Wave:</span>
+                    <span id="wave">1</span>
+                </div>
+                <div class="stat">
+                    <span>⭐ Score:</span>
+                    <span id="score">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="texasDonutUI">
+            <button id="texasButton" disabled>Texas Donut: 0/15</button>
+            <div id="texasProgressBar">
+                <div id="texasProgress"></div>
+            </div>
+        </div>
+
+        <div id="startScreen">
+            <h1>👦 ATTACK OF THE FREDDIES 🍩</h1>
+            <p>
+                The Freddies are coming! They're hungry and getting angrier with each wave.<br>
+                Feed them donuts to satisfy their hunger before they reach you!<br><br>
+                <strong>Click to throw donuts</strong> at the incoming Freddies.<br>
+                Each wave gets faster and brings more Freddies!<br>
+                Don't let them reach the bottom or you'll lose a life!<br><br>
+                <strong>🌟 SPECIAL WEAPON: THE TEXAS DONUT 🌟</strong><br>
+                Feed 15 Freddies to bake the massive Texas Donut!<br>
+                When ready, click the button (or press SPACE) to feed ALL Freddies at once!
+            </p>
+            <button id="startButton">START GAME</button>
+        </div>
+
+        <div id="gameOverScreen" class="hidden">
+            <h1>GAME OVER!</h1>
+            <div class="score">
+                Final Score: <span id="finalScore">0</span>
+            </div>
+            <p id="gameOverMessage"></p>
+            <button id="restartButton">PLAY AGAIN</button>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
+
