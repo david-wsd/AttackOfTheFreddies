@@ -92,7 +92,7 @@ class Freddie {
         this.y = -this.height;
         
         // Health: Square root growth (slower, more predictable)
-		const maxHealth = 4; // Maximum health cap
+		const maxHealth = 5; // Maximum health cap (increased from 4)
         const maxSpeed = 2.5; // Final speed target - adjust this to change difficulty
         const speedGrowthRate = 0.05;
 
@@ -718,10 +718,10 @@ function spawnFreddie() {
         game.freddies.push(new Freddie(game.wave));
         game.freddiesSpawned++;
         
-        // Spawn rate: Asymptotically approaches 30 frames (0.5 sec)
-        const minRate = 30;
-        const maxRate = 65;
-        game.spawnTimer = Math.floor(minRate + (maxRate - minRate) * Math.exp(-0.08 * game.wave));
+        // Spawn interval: Asymptotically approaches 20 frames (0.33 sec)
+        const minSpawnInterval = 20;
+        const maxSpawnInterval = 65;
+        game.spawnTimer = Math.floor(minSpawnInterval + (maxSpawnInterval - minSpawnInterval) * Math.exp(-0.06 * game.wave));
     }
 }
 
