@@ -61,7 +61,10 @@ const game = {
     texasDonutChunks: [], // Explosion chunks
     texasDonutShockwaves: [], // Shockwave rings
     lifeHearts: [], // Falling life powerups
-    lifeHeartSpawnTimer: 0
+    lifeHeartSpawnTimer: 0,
+    handThrowAnimation: 0, // Hand throwing animation timer (0 = idle)
+    handAimX: 0, // X position hand is aiming at
+    handAimY: 0 // Y position hand is aiming at
 };
 
 // Texas Donut Configuration
@@ -488,16 +491,15 @@ class DonutBox {
             // Texas donut - appears as a big falling donut
             this.width = 70;
             this.height = 70;
-            this.health = 1;
+            this.health = 1; // Always 1 hit
             this.maxHealth = 1;
             this.donutReward = 0; // Doesn't give regular donuts
         } else {
             // Regular box with donuts inside
             this.width = 50;
             this.height = 50;
-            // Health based on wave difficulty
-            this.health = Math.max(2, Math.floor(wave / 2) + 1);
-            this.maxHealth = this.health;
+            this.health = 1; // Always 1 hit
+            this.maxHealth = 1;
             
             // Reward based on wave difficulty (minimum 6 donuts to match the 6 donuts shown)
             this.donutReward = Math.max(6, 4 + Math.floor(wave / 2) * 2);
@@ -1042,6 +1044,184 @@ function draw() {
     // Draw danger zone
     ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
     ctx.fillRect(0, canvas.height - 100, canvas.width, 100);
+    
+    // Draw hand at bottom center
+    if (game.state === 'playing') {
+        drawHand();
+    }
+}
+
+// Draw hand throwing donuts
+function drawHand() {
+    const handX = canvas.width / 2;
+    const handY = canvas.height - 25;
+    
+    // Update animation
+    if (game.handThrowAnimation > 0) {
+        game.handThrowAnimation--;
+    }
+    
+    const isThrowing = game.handThrowAnimation > 0;
+    
+    // Calculate rotation angle to point at aim target
+    let handRotation = 0;
+    if (game.handAimX !== 0 || game.handAimY !== 0) {
+        const dx = game.handAimX - handX;
+        const dy = game.handAimY - handY;
+        handRotation = Math.atan2(dy, dx) + Math.PI / 2; // +90° because hand points up by default
+    }
+    
+    ctx.save();
+    ctx.translate(handX, handY);
+    ctx.rotate(handRotation);
+    
+    const handSize = 40;
+    
+    if (isThrowing) {
+        // OPEN PALM (throwing)
+        
+        // Wrist
+        ctx.fillStyle = '#FDBF96';
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.roundRect(-handSize * 0.25, handSize * 0.4, handSize * 0.5, handSize * 0.3, 5);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Palm
+        ctx.fillStyle = '#FDBF96';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, handSize * 0.5, handSize * 0.6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Thumb (left side, spread out)
+        ctx.fillStyle = '#FDBF96';
+        ctx.beginPath();
+        ctx.ellipse(-handSize * 0.6, handSize * 0.1, handSize * 0.2, handSize * 0.45, -0.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Four fingers (spread out)
+        const fingers = [
+            { x: -handSize * 0.35, y: -handSize * 0.7, rotation: -0.3 },
+            { x: -handSize * 0.12, y: -handSize * 0.85, rotation: -0.1 },
+            { x: handSize * 0.12, y: -handSize * 0.85, rotation: 0.1 },
+            { x: handSize * 0.35, y: -handSize * 0.7, rotation: 0.3 }
+        ];
+        
+        fingers.forEach(finger => {
+            ctx.save();
+            ctx.translate(finger.x, finger.y);
+            ctx.rotate(finger.rotation);
+            
+            ctx.fillStyle = '#FDBF96';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, handSize * 0.15, handSize * 0.35, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            
+            // Finger lines
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(-handSize * 0.08, -handSize * 0.1);
+            ctx.lineTo(handSize * 0.08, -handSize * 0.1);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(-handSize * 0.08, handSize * 0.05);
+            ctx.lineTo(handSize * 0.08, handSize * 0.05);
+            ctx.stroke();
+            
+            ctx.restore();
+        });
+        
+        // Palm lines
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-handSize * 0.2, handSize * 0.1);
+        ctx.quadraticCurveTo(0, handSize * 0.2, handSize * 0.2, handSize * 0.1);
+        ctx.stroke();
+        
+    } else {
+        // CLOSED FIST (holding donut)
+        
+        // Wrist
+        ctx.fillStyle = '#FDBF96';
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.roundRect(-handSize * 0.25, handSize * 0.3, handSize * 0.5, handSize * 0.3, 5);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Donut in hand (partially visible)
+        ctx.fillStyle = '#FFB6C1';
+        ctx.beginPath();
+        ctx.arc(0, -handSize * 0.1, handSize * 0.25, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        
+        // Donut hole
+        ctx.fillStyle = '#87CEEB';
+        ctx.beginPath();
+        ctx.arc(0, -handSize * 0.1, handSize * 0.1, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Frosting on donut
+        ctx.fillStyle = '#FF69B4';
+        for (let i = 0; i < 4; i++) {
+            const angle = (Math.PI * 2 / 4) * i;
+            const x = Math.cos(angle) * handSize * 0.18;
+            const y = -handSize * 0.1 + Math.sin(angle) * handSize * 0.18;
+            ctx.beginPath();
+            ctx.arc(x, y, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        // Palm/Fist
+        ctx.fillStyle = '#FDBF96';
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.ellipse(0, handSize * 0.05, handSize * 0.45, handSize * 0.35, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Thumb (wrapped around)
+        ctx.fillStyle = '#FDBF96';
+        ctx.beginPath();
+        ctx.ellipse(-handSize * 0.45, 0, handSize * 0.18, handSize * 0.3, -0.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Four curled fingers
+        for (let i = 0; i < 4; i++) {
+            const fingerX = -handSize * 0.3 + (i * handSize * 0.2);
+            const fingerY = -handSize * 0.25;
+            
+            ctx.fillStyle = '#FDBF96';
+            ctx.beginPath();
+            ctx.ellipse(fingerX, fingerY, handSize * 0.12, handSize * 0.2, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            
+            // Knuckle line
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(fingerX - handSize * 0.08, fingerY);
+            ctx.lineTo(fingerX + handSize * 0.08, fingerY);
+            ctx.stroke();
+        }
+    }
+    
+    ctx.restore();
 }
 
 // Draw Texas Donut animation
@@ -1331,8 +1511,26 @@ function handleThrow(e) {
 
     game.thrownDonuts.push(new Donut(canvas.width / 2, canvas.height - 50, canvasX, canvasY));
     game.donuts--;
+    game.handThrowAnimation = 10; // Start throw animation (10 frames = open palm)
+    game.handAimX = canvasX; // Store aim position
+    game.handAimY = canvasY;
     updateUI();
 }
+
+// Track mouse movement for hand aiming (desktop only)
+canvas.addEventListener('mousemove', (e) => {
+    if (game.state !== 'playing') return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    // Scale coordinates to match canvas internal dimensions
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    game.handAimX = x * scaleX;
+    game.handAimY = y * scaleY;
+});
 
 // Add both mouse and touch listeners
 canvas.addEventListener('click', handleThrow);
