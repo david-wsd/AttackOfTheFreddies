@@ -68,7 +68,7 @@ const game = {
 };
 
 // Texas Donut Configuration
-const TEXAS_DONUT_REQUIRED = 15; // Freddies needed to charge
+const TEXAS_DONUT_REQUIRED = 25; // Freddies needed to charge
 
 // Freddie Class
 class Freddie {
@@ -739,14 +739,14 @@ function update() {
             game.donutBoxSpawnTimer = 800 + Math.random() * 1200; // 13-33 seconds
         }
 
-        // Spawn Texas donut boxes - more frequent at higher waves
+        // Spawn Texas donut boxes - much rarer, slight increase at higher waves
         game.texasDonutBoxSpawnTimer--;
         if (game.texasDonutBoxSpawnTimer <= 0 && game.texasDonutBoxes.length < 1) {
             game.texasDonutBoxes.push(new DonutBox(game.wave, true));
-            // More frequent at higher waves to help with difficulty
-            const baseInterval = 2400;
-            const waveBonus = Math.max(0.5, 1 - (game.wave * 0.015)); // Gets more frequent
-            game.texasDonutBoxSpawnTimer = Math.floor(baseInterval * waveBonus + Math.random() * 1800);
+            // Much rarer spawns, slower frequency increase at higher waves
+            const baseInterval = 4800; // Doubled from 2400
+            const waveBonus = Math.max(0.7, 1 - (game.wave * 0.01)); // Slower increase (was 0.015)
+            game.texasDonutBoxSpawnTimer = Math.floor(baseInterval * waveBonus + Math.random() * 3600);
         }
 
         // Spawn life hearts - more frequent at higher waves
@@ -1447,7 +1447,7 @@ function startGame() {
     game.donutBoxes = [];
     game.donutBoxSpawnTimer = 0;
     game.texasDonutBoxes = [];
-    game.texasDonutBoxSpawnTimer = 1800 + Math.random() * 1800; // First one appears 30-60 seconds into game
+    game.texasDonutBoxSpawnTimer = 3600 + Math.random() * 3600; // First one appears 60-120 seconds into game
     game.texasDonutChunks = [];
     game.texasDonutShockwaves = [];
     game.lifeHearts = [];
