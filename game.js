@@ -754,14 +754,14 @@ function update() {
             game.texasDonutBoxSpawnTimer = Math.floor(baseInterval * waveBonus + Math.random() * 3600);
         }
 
-        // Spawn life hearts - more frequent at higher waves
+        // Spawn life hearts - more frequent at higher waves (but half as often overall)
         game.lifeHeartSpawnTimer--;
         if (game.lifeHeartSpawnTimer <= 0 && game.lifeHearts.length < 1) {
             game.lifeHearts.push(new LifeHeart());
             // More frequent at higher waves to compensate for difficulty
-            const baseInterval = 1800;
+            const baseInterval = 3600; // Doubled from 1800
             const waveBonus = Math.max(0.4, 1 - (game.wave * 0.02)); // Gets more frequent
-            game.lifeHeartSpawnTimer = Math.floor(baseInterval * waveBonus + Math.random() * 1200);
+            game.lifeHeartSpawnTimer = Math.floor(baseInterval * waveBonus + Math.random() * 2400); // Doubled from 1200
         }
 
         // Check if wave is complete
@@ -1469,7 +1469,7 @@ function startGame() {
     game.texasDonutChunks = [];
     game.texasDonutShockwaves = [];
     game.lifeHearts = [];
-    game.lifeHeartSpawnTimer = 1200 + Math.random() * 1800; // First one appears 20-50 seconds into game
+    game.lifeHeartSpawnTimer = 2400 + Math.random() * 3600; // First one appears 40-100 seconds into game
     
     document.getElementById('startScreen').classList.add('hidden');
     document.getElementById('gameOverScreen').classList.add('hidden');
