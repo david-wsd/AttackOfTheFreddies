@@ -7,8 +7,10 @@ function resizeCanvas() {
     const isMobile = window.innerWidth <= 768;
     
     if (isMobile) {
+        // Use visual viewport if available (better for mobile)
+        const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
         canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        canvas.height = vh;
     } else {
         canvas.width = 1000;
         canvas.height = 700;
@@ -18,9 +20,12 @@ function resizeCanvas() {
 // Initial resize
 resizeCanvas();
 
-// Resize on orientation change
+// Resize on orientation change and viewport changes
 window.addEventListener('resize', resizeCanvas);
 window.addEventListener('orientationchange', resizeCanvas);
+if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', resizeCanvas);
+}
 
 // Load Freddie image
 const freddieImg = new Image();
@@ -1051,6 +1056,21 @@ function draw() {
     }
 }
 
+// Helper function to draw rounded rectangle (for browser compatibility)
+function drawRoundRect(ctx, x, y, width, height, radius) {
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+}
+
 // Draw hand throwing donuts
 function drawHand() {
     const handX = canvas.width / 2;
@@ -1084,8 +1104,7 @@ function drawHand() {
         ctx.fillStyle = '#FDBF96';
         ctx.strokeStyle = '#000';
         ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.roundRect(-handSize * 0.25, handSize * 0.4, handSize * 0.5, handSize * 0.3, 5);
+        drawRoundRect(ctx, -handSize * 0.25, handSize * 0.4, handSize * 0.5, handSize * 0.3, 5);
         ctx.fill();
         ctx.stroke();
         
@@ -1152,8 +1171,7 @@ function drawHand() {
         ctx.fillStyle = '#FDBF96';
         ctx.strokeStyle = '#000';
         ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.roundRect(-handSize * 0.25, handSize * 0.3, handSize * 0.5, handSize * 0.3, 5);
+        drawRoundRect(ctx, -handSize * 0.25, handSize * 0.3, handSize * 0.5, handSize * 0.3, 5);
         ctx.fill();
         ctx.stroke();
         

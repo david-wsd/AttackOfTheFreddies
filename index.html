@@ -206,12 +206,14 @@
             #gameContainer {
                 width: 100vw;
                 height: 100vh;
+                height: -webkit-fill-available; /* Fix for mobile Safari/Chrome */
                 border-radius: 0;
             }
 
             #gameCanvas {
                 width: 100vw !important;
                 height: 100vh !important;
+                height: -webkit-fill-available !important; /* Fix for mobile Safari/Chrome */
             }
 
             #ui {
