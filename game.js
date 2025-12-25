@@ -93,8 +93,8 @@ class Freddie {
         
         // Health: Square root growth (slower, more predictable)
 		const maxHealth = 4; // Maximum health cap
-        const maxSpeed = 2.1; // Final speed target - adjust this to change difficulty
-        const speedGrowthRate = 0.07;
+        const maxSpeed = 2.5; // Final speed target - adjust this to change difficulty
+        const speedGrowthRate = 0.05;
 
 		this.health = Math.min(maxHealth, Math.floor(Math.sqrt(Math.max(0, wave - 1) / 2.1)) + 1);
         this.maxHealth = this.health;
